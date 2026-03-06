@@ -1,26 +1,48 @@
 /**
  * SHRINE AI - Header Component
  * 
- * Top bar with SHRINE branding, view mode toggle, and model info.
+ * Top bar with SHRINE branding, view mode toggle, and user profile.
  * 
  * Logic:
  * 1. Display SHRINE logo with amber glow
  * 2. View mode toggle buttons (Single / Grid)
- * 3. Current model indicator
+ * 3. User avatar + sign out button
  * 4. Shrine-themed glassmorphism styling
  */
 
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Columns2, MessageSquare, Flame } from 'lucide-react';
+import { Columns2, MessageSquare, Flame, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useModelContext } from '@/contexts/ModelContext';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 export function Header(): React.JSX.Element {
     const { viewMode, setViewMode } = useModelContext();
+    const [user, setUser] = useState<User | null>(null);
+
+    useEffect(() => {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data }) => {
+            setUser(data.user);
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handleSignOut = async () => {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+    };
 
     return (
         <header className="sticky top-0 z-50 border-b border-amber-400/10 bg-zinc-950/80 backdrop-blur-xl">
@@ -60,8 +82,8 @@ export function Header(): React.JSX.Element {
                                 size="sm"
                                 onClick={() => setViewMode('single')}
                                 className={`h-8 gap-2 px-3 text-xs transition-all duration-300 ${viewMode === 'single'
-                                        ? 'bg-amber-400/10 text-amber-400 shadow-inner shadow-amber-400/10'
-                                        : 'text-zinc-500 hover:text-zinc-300'
+                                    ? 'bg-amber-400/10 text-amber-400 shadow-inner shadow-amber-400/10'
+                                    : 'text-zinc-500 hover:text-zinc-300'
                                     }`}
                             >
                                 <MessageSquare className="h-3.5 w-3.5" />
@@ -78,8 +100,8 @@ export function Header(): React.JSX.Element {
                                 size="sm"
                                 onClick={() => setViewMode('grid')}
                                 className={`h-8 gap-2 px-3 text-xs transition-all duration-300 ${viewMode === 'grid'
-                                        ? 'bg-amber-400/10 text-amber-400 shadow-inner shadow-amber-400/10'
-                                        : 'text-zinc-500 hover:text-zinc-300'
+                                    ? 'bg-amber-400/10 text-amber-400 shadow-inner shadow-amber-400/10'
+                                    : 'text-zinc-500 hover:text-zinc-300'
                                     }`}
                             >
                                 <Columns2 className="h-3.5 w-3.5" />
@@ -90,15 +112,53 @@ export function Header(): React.JSX.Element {
                     </Tooltip>
                 </motion.div>
 
-                {/* Status */}
+                {/* User Profile & Sign Out */}
                 <motion.div
-                    className="flex items-center gap-2 text-xs text-zinc-500"
+                    className="flex items-center gap-3 text-xs text-zinc-500"
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
                 >
                     <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
                     <span>Systems Online</span>
+
+                    {user && (
+                        <>
+                            <div className="h-4 w-px bg-zinc-700/50" />
+                            <div className="flex items-center gap-2">
+                                {user.user_metadata?.avatar_url ? (
+                                    <img
+                                        src={user.user_metadata.avatar_url}
+                                        alt={user.user_metadata.full_name || 'User'}
+                                        className="h-7 w-7 rounded-full border border-amber-400/20"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-400/20 bg-zinc-800 text-[10px] font-semibold text-amber-400">
+                                        {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                                    </div>
+                                )}
+                                <span className="hidden text-zinc-400 sm:inline">
+                                    {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                                </span>
+                            </div>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        id="sign-out-button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleSignOut}
+                                        className="h-8 w-8 p-0 text-zinc-500 hover:text-red-400 transition-colors duration-300"
+                                    >
+                                        <LogOut className="h-3.5 w-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Sign out</TooltipContent>
+                            </Tooltip>
+                        </>
+                    )}
                 </motion.div>
             </div>
         </header>
