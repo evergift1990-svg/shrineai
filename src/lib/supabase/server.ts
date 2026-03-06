@@ -21,9 +21,15 @@ export async function createClient() {
                 },
                 setAll(cookiesToSet) {
                     try {
-                        cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
-                        );
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            // Omit domain to prevent cross-subdomain/preview cookie loss on Vercel
+                            const { domain, ...cleanOptions } = options;
+                            cookieStore.set(name, value, {
+                                ...cleanOptions,
+                                secure: process.env.NODE_ENV === 'production' || cleanOptions.secure,
+                                sameSite: 'lax',
+                            });
+                        });
                     } catch {
                         // The `setAll` method is called from a Server Component.
                         // This can be ignored if you have middleware refreshing sessions.

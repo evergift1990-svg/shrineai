@@ -28,9 +28,14 @@ export async function updateSession(request: NextRequest) {
                     supabaseResponse = NextResponse.next({
                         request,
                     });
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        supabaseResponse.cookies.set(name, value, options)
-                    );
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        const { domain, ...cleanOptions } = options;
+                        supabaseResponse.cookies.set(name, value, {
+                            ...cleanOptions,
+                            secure: process.env.NODE_ENV === 'production' || cleanOptions.secure,
+                            sameSite: 'lax',
+                        });
+                    });
                 },
             },
         }
